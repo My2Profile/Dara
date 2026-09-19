@@ -1,0 +1,16 @@
+spring.application.name=Daras
+
+jwt.secret=a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6
+jwt.access.expiration=900000
+jwt.refresh.expiration=604800000
+jwt.tokenPrefix=Bearer
+jwt.header=Authorization
+
+spring.datasource.url=jdbc:postgresql://localhost:5432/Dara
+spring.datasource.username=postgres
+spring.datasource.password=postgres_pw
+
+spring.jpa.database-platform=org.hibernate.dialect.PostgreSQLDialect
+spring.jpa.hibernate.ddl-auto=update
+spring.jpa.show-sql=true
+spring.jpa.properties.hibernate.format_sql=true

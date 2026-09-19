@@ -1,0 +1,23 @@
+
+<h1>{{ pageTitle }}</h1>
+
+<form [formGroup]="loginForm" (ngSubmit)="submitForm()">
+    <input formControlName="email" />
+    @if (loginForm.get('email')?.invalid && loginForm.get('email')?.touched) {
+        <br>
+        <small>Email is invalid</small>
+    }
+
+    <br>
+    <input formControlName="password" />
+    @if(loginForm.get('password')?.invalid && loginForm.get('password')?.touched) {
+        <small><br>Password must be at least 8 characters</small>
+    }
+
+    <button type="submit" [disabled]="loginForm.invalid">Login</button>
+</form>
+
+<div> <a routerLink="/">Home</a> </div>
+
+
+
