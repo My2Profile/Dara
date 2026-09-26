@@ -1,23 +1,50 @@
 
-<h1>{{ pageTitle }}</h1>
+<section class="login-page">
 
-<form [formGroup]="loginForm" (ngSubmit)="submitForm()">
-    <input formControlName="email" />
-    @if (loginForm.get('email')?.invalid && loginForm.get('email')?.touched) {
-        <br>
-        <small>Email is invalid</small>
-    }
+    <h1>{{ pageTitle }}</h1>
 
-    <br>
-    <input formControlName="password" />
-    @if(loginForm.get('password')?.invalid && loginForm.get('password')?.touched) {
-        <small><br>Password must be at least 8 characters</small>
-    }
+    <div class="login-card">
 
-    <button type="submit" [disabled]="loginForm.invalid">Login</button>
-</form>
+        <div class="login-status">
 
-<div> <a routerLink="/">Home</a> </div>
+        @if(isSubmitting()) {
+            <p id="login-signing-in">Signing in...</p>
+        }
+
+        @if(errorMessage()) {
+            <p id="login-error">{{ errorMessage() }}</p>
+        }
+
+        @if(successMessage()) {
+            <p id="login-success">{{ successMessage() }}</p>
+        }
+
+        </div>
 
 
+    
+        <form [formGroup]="loginForm" (ngSubmit)="submitForm()" class="login-form">
+            <p>Email:</p>
+            <input formControlName="email" placeholder="example@gmail.com" class="form-input"/>
+            @if (loginForm.get('email')?.invalid && loginForm.get('email')?.touched) {
+                <br>
+                <small>Email is invalid</small>
+            }
+
+            <br>
+            <p>Password:</p>
+            <input type="password" formControlName="password" class="form-input" />
+            @if(loginForm.get('password')?.invalid && loginForm.get('password')?.touched) {
+                <small><br>Password must be at least 8 characters</small>
+            }
+            <br>
+
+            <button type="submit" [disabled]="loginForm.invalid || isSubmitting()" id="login-submit-button">Login</button>
+        </form>
+
+    </div>
+    
+    <div id="login-home"> <a routerLink="/">Home</a> </div>
+
+</section>
 

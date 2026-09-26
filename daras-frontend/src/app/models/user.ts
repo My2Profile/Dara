@@ -1,0 +1,9 @@
+export interface User {
+
+    id: number;
+    email: string;
+    role: string;
+    createdAt: string;
+    active: boolean;
+
+}

@@ -1,0 +1,11 @@
+<p>dashboard works!</p>
+
+<button type="button" (click)="loadCurrentUser()">Load Current User</button>
+
+@if(currentUser(); as user) {
+    <section class="user-panel">
+        <h2>Welcome, {{ user.email }}</h2>
+        <p>Role: {{ user.role }}</p>
+        <p>Active: {{ user.active }}</p>
+    </section>
+}
