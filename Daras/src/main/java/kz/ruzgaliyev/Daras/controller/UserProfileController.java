@@ -26,13 +26,13 @@ public class UserProfileController {
     }
 
 
-    @Valid 
+    
     @GetMapping("/{userId}/profile")
     public ResponseEntity<UserProfile> getProfile(@PathVariable Long userId) {
         return ResponseEntity.ok(userProfileService.getProfileByUserId(userId));
     }
 
-    @Valid 
+    
     @PostMapping("{userId}/profile")
     public ResponseEntity<UserProfile> saveOrUpdateProfile(@PathVariable Long userId, @RequestBody @Valid UserProfileRequest request) {
         return ResponseEntity.ok(userProfileService.saveOrUpdateProfile(userId, request));
