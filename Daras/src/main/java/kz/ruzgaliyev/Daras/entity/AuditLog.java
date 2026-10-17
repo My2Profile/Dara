@@ -48,7 +48,7 @@ public class AuditLog {
     private LocalDateTime createdAt;
 
     public AuditLog(Long actorUserId, String actorEmail, String action, String targetType, 
-        Long targetId, String description, String ipAdrress, String userAgent) {
+        Long targetId, String description, String ipAddress, String userAgent) {
 
         this.actorUserId = actorUserId;
         this.actorEmail = actorEmail;
@@ -56,7 +56,7 @@ public class AuditLog {
         this.targetType = targetType;
         this.targetId = targetId;
         this.description = description;
-        this.ipAddress = ipAdrress;
+        this.ipAddress = ipAddress;
         this.userAgent = userAgent;
 
     }

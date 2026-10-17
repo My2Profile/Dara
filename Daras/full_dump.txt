@@ -742,7 +742,7 @@ public class AuditLog {
         this.targetType = targetType;
         this.targetId = targetId;
         this.description = description;
-        this.ipAddress = ipAdrress;
+        this.ipAddress = ipAddress;
         this.userAgent = userAgent;
 
     }

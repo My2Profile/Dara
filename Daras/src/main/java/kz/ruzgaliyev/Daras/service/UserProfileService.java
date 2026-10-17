@@ -83,7 +83,7 @@ public class UserProfileService {
         User currentUser = userRepository.findByEmail(currentEmail)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User with this email not found"));
         
-        if( !(currentUser.getId() == userId || currentUser.getRole().equals("ADMIN")) ) {
+        if( !(currentUser.getId().equals(userId) || currentUser.getRole().equals("ADMIN")) ) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Not allowed to access this profile!");
         }
 
