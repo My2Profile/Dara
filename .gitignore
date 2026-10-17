@@ -35,3 +35,5 @@ build/
 tz_extracted.txt
 hs_err_pid3808.log
 tech_task_(3).docx
+.terraform/
+*.log

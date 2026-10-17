@@ -1,11 +1,73 @@
-<p>dashboard works!</p>
+<section class="dashboard-page">
 
-<button type="button" (click)="loadCurrentUser()">Load Current User</button>
+  <h1>Dashboard</h1>
 
-@if(currentUser(); as user) {
+  @if(errorMessage()) {
+    <p id="dashboard-error">{{ errorMessage() }}</p>
+  }
+  @if(message()) {
+    <p id="dashboard-message">{{ message() }}</p>
+  }
+
+  @if(currentUser(); as user) {
     <section class="user-panel">
-        <h2>Welcome, {{ user.email }}</h2>
-        <p>Role: {{ user.role }}</p>
-        <p>Active: {{ user.active }}</p>
+      <h2>Welcome, {{ user.email }}</h2>
+      <p>Role: {{ user.role }}</p>
+      <p>Active: {{ user.active }}</p>
     </section>
-}
+  }
+
+  <section class="actions">
+    <button type="button" class="secondary" (click)="logout()">Logout</button>
+    <button type="button" class="danger" (click)="logoutAll()">Logout from all devices</button>
+    @if(currentUser()?.role === 'ADMIN') {
+      <a routerLink="/admin" class="btn">Go to Admin Panel</a>
+    }
+  </section>
+
+  <section class="update-email">
+    <h3>Update email</h3>
+    <form [formGroup]="emailForm" (ngSubmit)="submitEmail()">
+      <input formControlName="email" placeholder="new@email.com" />
+      <button type="submit" [disabled]="emailForm.invalid">Update email</button>
+    </form>
+  </section>
+
+  <section class="update-password">
+    <h3>Change password</h3>
+    <form [formGroup]="passwordForm" (ngSubmit)="submitPassword()">
+      <input type="password" formControlName="oldPassword" placeholder="Old password" />
+      <input type="password" formControlName="newPassword" placeholder="New password" />
+      <button type="submit" [disabled]="passwordForm.invalid">Change password</button>
+    </form>
+  </section>
+
+  <section class="sessions">
+    <h3>Active sessions</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Created</th>
+          <th>Expires</th>
+          <th>Device</th>
+          <th>IP</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (session of sessions(); track session.id) {
+          <tr>
+            <td>{{ session.id }}</td>
+            <td>{{ session.createdAt }}</td>
+            <td>{{ session.expiresAt  }}</td>
+            <td>{{ session.userAgent }}</td>
+            <td>{{ session.ipAddress }}</td>
+            <td><button type="button" class="danger" (click)="revokeSession(session.id)">Revoke</button></td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </section>
+
+</section>

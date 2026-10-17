@@ -1,0 +1,32 @@
+spring:
+  application:
+    name: Daras
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/Dara_test
+    username: postgres
+    password: ${DB_PASSWORD:postgres_pw}
+    driver-class-name: org.postgresql.Driver
+  
+  jpa:
+    open-in-view: false
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      ddl-auto: validate
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+app:
+  seed-admin:
+    enabled: true
+
+sql:
+  init:
+    mode: always
+
+data:
+  web:
+    pageable:
+      max-page-size: 100

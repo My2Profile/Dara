@@ -3,8 +3,8 @@ package kz.ruzgaliyev.Daras.repository;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.transaction.annotation.Transactional;
 
-import jakarta.transaction.Transactional;
 import kz.ruzgaliyev.Daras.entity.UserProfile;
 
 public interface UserProfileRepository extends JpaRepository<UserProfile, Long> {

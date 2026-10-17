@@ -1,19 +1,52 @@
-import { HttpInterceptorFn } from '@angular/common/http';
+import { HttpErrorResponse, HttpInterceptorFn } from '@angular/common/http';
+import { inject } from '@angular/core';
+import { Router } from '@angular/router';
+import { Auth } from './auth';
+import { catchError, switchMap, throwError } from 'rxjs';
 
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
   
-  const accessToken = localStorage.getItem('accessToken');
+  const auth = inject(Auth);
+  const router = inject(Router);
 
-  if(!accessToken) {
-    return next(req);
-  }
+  const accessToken = auth.getAccessToken();
+  const authReq = accessToken ? 
+  req.clone( {setHeaders: {Authorization: `Bearer ${accessToken}`}} ) : req;
 
-  const authReq = req.clone({
-    setHeaders: {
-      Authorization: `Bearer ${accessToken}`
-    },
-  })
+  return next(authReq).pipe(
+    catchError((error: HttpErrorResponse) => {
+      const isAuthEndpoint = req.url.includes('/api/auth');
 
-  return next(authReq);
+      if(error.status !== 401 || isAuthEndpoint) {
+        return throwError(() => error);
+      }
+
+      const refreshToken = auth.getRefreshToken();
+      if(!refreshToken) {
+        auth.clearTokens();
+        router.navigate(['/login']);
+        return throwError(() => error);
+      }
+
+      return auth.refresh(refreshToken).pipe(
+        switchMap((response) => {
+          auth.storeTokens(response);
+          const retryReq = req.clone({
+            setHeaders: {Authorization: `Bearer ${response.accessToken}` },
+          });
+          return next(retryReq);
+
+        }),
+
+        catchError((refreshError) => {
+          auth.clearTokens();
+          router.navigate(['/login']);
+          return throwError(() => refreshError);
+        })
+      )
+
+    })
+  )
+
 
 };

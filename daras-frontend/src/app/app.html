@@ -1,6 +1,18 @@
 
 <header class="brand-name">
     <img class="brand-logo" src="favicon.ico" alt="Daras Logo" />
+    <nav>
+        <a routerLink="/">Home</a>
+        @if (auth.isLoggedIn()) {
+            <a routerLink="/dashboard">Dashboard</a>
+            @if (auth.getRole() === 'ADMIN') {
+                <a routerLink="/admin">Admin</a>
+            }
+        } @else {
+            <a routerLink="/login">Login</a>
+            <a routerLink="/register">Register</a>
+        }
+    </nav>
 </header>
 
 <main class="content">

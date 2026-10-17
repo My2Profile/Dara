@@ -1,12 +1,9 @@
-<main>
-<h1>{{ pageTitle }}</h1>
-<p>Current page: home</p>
+<section class="hero">
+  <h1>Welcome to Daras</h1>
+  <p class="lead">Manage your account, your active sessions and your users in one place.</p>
 
-<br>
-
-<p>Clicks: {{ clickCount }}</p>
-<button (click)="increaseCount()">Click Me!</button>
-<button (click)="resetCount()">Reset</button>
-
-<div><a routerLink="/login">Login</a></div>
-</main>
+  <div class="hero-actions">
+    <a routerLink="/login" class="btn">Login</a>
+    <a routerLink="/register" class="btn btn-secondary">Register</a>
+  </div>
+</section>

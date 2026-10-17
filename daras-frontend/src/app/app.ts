@@ -1,10 +1,11 @@
 import { Component, signal} from '@angular/core';
-import { RouterOutlet } from '@angular/router';
+import { RouterLink, RouterOutlet } from '@angular/router';
+import { Auth } from './auth';
 
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet],
+  imports: [RouterOutlet, RouterLink],
   templateUrl: './app.html',
   styleUrl: './app.scss'
 })
@@ -12,4 +13,7 @@ import { RouterOutlet } from '@angular/router';
 
 export class App {
   protected readonly title = signal('Daras Application');
+
+  constructor(protected auth: Auth){}
+
 }

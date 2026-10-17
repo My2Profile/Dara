@@ -12,7 +12,7 @@ import kz.ruzgaliyev.Daras.service.JwtService;
 @EnableConfigurationProperties(JwtProperties.class)
 public class DarasApplication {
 
-	public static void main(String[] args) {
+	public static void main(String[] args)  {
 		ConfigurableApplicationContext context = SpringApplication.run(DarasApplication.class, args);
 
 		JwtService jwtService = context.getBean(JwtService.class);

@@ -1,0 +1,47 @@
+
+<section class="register-page">
+
+    <h1>{{ pageTitle }}</h1>
+
+    <div class="register-card">
+
+        <div class="register-status">
+
+        @if(isSubmitting()) {
+            <p id="register-submitting">Creating account...</p>
+        }
+
+        @if(errorMessage()) {
+            <p id="register-error">{{ errorMessage() }}</p>
+        }
+
+        @if(successMessage()) {
+            <p id="register-success">{{ successMessage() }}</p>
+        }
+
+        </div>
+
+        <form [formGroup]="registerForm" (ngSubmit)="submitForm()" class="register-form">
+            <p>Email:</p>
+            <input formControlName="email" placeholder="example@gmail.com" class="form-input"/>
+            @if (registerForm.get('email')?.invalid && registerForm.get('email')?.touched) {
+                <br>
+                <small>Email is invalid</small>
+            }
+
+            <br>
+            <p>Password:</p>
+            <input type="password" formControlName="password" class="form-input" />
+            @if(registerForm.get('password')?.invalid && registerForm.get('password')?.touched) {
+                <small><br>Password must be at least 8 characters</small>
+            }
+            <br>
+
+            <button type="submit" [disabled]="registerForm.invalid || isSubmitting()" id="register-submit-button">Register</button>
+        </form>
+
+    </div>
+
+    <div id="register-login"> <a routerLink="/login">Already have an account? Log in</a> </div>
+
+</section>

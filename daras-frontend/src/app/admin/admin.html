@@ -1,0 +1,50 @@
+<section class="admin-page">
+
+  <h1>Admin Panel</h1>
+
+  @if(errorMessage()) {
+    <p id="admin-error">{{ errorMessage() }}</p>
+  }
+  @if(message()) {
+    <p id="admin-message">{{ message() }}</p>
+  }
+
+  <table>
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Email</th>
+        <th>Role</th>
+        <th>Active</th>
+        <th>Created</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (user of users(); track user.id) {
+        <tr>
+          <td>{{ user.id }}</td>
+          <td>{{ user.email }}</td>
+          <td>{{ user.role }}</td>
+          <td>{{ user.active }}</td>
+          <td>{{ user.createdAt | date:'medium' }}</td>
+          <td class="actions-cell">
+            @if (user.role === 'USER') {
+              <button type="button" (click)="changeRole(user.id, 'ADMIN')">Make Admin</button>
+            } @else {
+              <button type="button" (click)="changeRole(user.id, 'USER')">Make User</button>
+            }
+            <button type="button" class="secondary" (click)="toggleActive(user.id, user.active)">
+              {{ user.active ? 'Deactivate' : 'Activate' }}
+            </button>
+            <button type="button" class="danger" (click)="blockUser(user.id)">Block</button>
+            <button type="button" class="secondary" (click)="unblockUser(user.id)">Unblock</button>
+            <button type="button" class="danger" (click)="softDelete(user.id)">Soft delete</button>
+            <button type="button" class="secondary" (click)="restoreUser(user.id)">Restore</button>
+          </td>
+        </tr>
+      }
+    </tbody>
+  </table>
+
+</section>

@@ -14,6 +14,7 @@ import kz.ruzgaliyev.Daras.dto.UserProfileRequest;
 import kz.ruzgaliyev.Daras.entity.UserProfile;
 import kz.ruzgaliyev.Daras.service.UserProfileService;
 
+
 @RestController
 @RequestMapping("/users")
 public class UserProfileController {
@@ -25,11 +26,13 @@ public class UserProfileController {
     }
 
 
+    @Valid 
     @GetMapping("/{userId}/profile")
     public ResponseEntity<UserProfile> getProfile(@PathVariable Long userId) {
         return ResponseEntity.ok(userProfileService.getProfileByUserId(userId));
     }
 
+    @Valid 
     @PostMapping("{userId}/profile")
     public ResponseEntity<UserProfile> saveOrUpdateProfile(@PathVariable Long userId, @RequestBody @Valid UserProfileRequest request) {
         return ResponseEntity.ok(userProfileService.saveOrUpdateProfile(userId, request));

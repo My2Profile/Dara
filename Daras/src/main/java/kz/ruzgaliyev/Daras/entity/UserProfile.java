@@ -2,6 +2,7 @@ package kz.ruzgaliyev.Daras.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.MapsId;
@@ -31,7 +32,7 @@ public class UserProfile {
     @Column(columnDefinition = "TEXT")
     private String bio;
 
-    @OneToOne
+    @OneToOne(fetch = FetchType.LAZY)
     @MapsId 
     @JoinColumn(name = "user_id", nullable = false, unique = true)
     private User user;

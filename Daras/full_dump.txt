@@ -1,0 +1,1683 @@
+=====./DarasApplication.java=====
+package kz.ruzgaliyev.Daras;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.context.ConfigurableApplicationContext;
+
+import kz.ruzgaliyev.Daras.config.JwtProperties;
+import kz.ruzgaliyev.Daras.service.JwtService;
+
+@SpringBootApplication
+@EnableConfigurationProperties(JwtProperties.class)
+public class DarasApplication {
+
+	public static void main(String[] args) {
+		ConfigurableApplicationContext context = SpringApplication.run(DarasApplication.class, args);
+
+		JwtService jwtService = context.getBean(JwtService.class);
+
+		String token = jwtService.generateToken("test@mail.com", "USER");
+		System.out.println("TOKEN: " + token);
+		System.out.println("EMAIL: " + jwtService.extractEmail(token));
+		System.out.println("ROLE: " + jwtService.extractRole(token));
+		System.out.println("VALID: " + jwtService.validateToken(token));
+	}
+
+}
+=====./config/JwtAuthFilter.java=====
+package kz.ruzgaliyev.Daras.config;
+
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import kz.ruzgaliyev.Daras.entity.User;
+import kz.ruzgaliyev.Daras.repository.UserRepository;
+import kz.ruzgaliyev.Daras.service.JwtService;
+//import org.springframework.lang.NonNull;
+import jakarta.annotation.Nonnull;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.stereotype.Component;
+import org.springframework.web.filter.OncePerRequestFilter;
+
+import java.io.IOException;
+import java.util.List;
+
+@Component
+public class JwtAuthFilter extends OncePerRequestFilter {
+
+    private final JwtService jwtService;
+    private final UserRepository userRepository;
+
+    public JwtAuthFilter(JwtService jwtService, UserRepository userRepository) {
+        this.jwtService = jwtService;
+        this.userRepository = userRepository;
+    }
+
+    @Override
+    protected void doFilterInternal(@Nonnull HttpServletRequest request,
+                                     @Nonnull HttpServletResponse response,
+                                     @Nonnull FilterChain filterChain) throws ServletException, IOException {
+        String header = request.getHeader("Authorization");
+
+        if (header != null && header.startsWith("Bearer ")) {
+            String token = header.substring(7);
+            if (jwtService.validateToken(token)) {
+                String email = jwtService.extractEmail(token);
+                String role = jwtService.extractRole(token);
+                User user = userRepository.findByEmail(email).orElse(null);
+                if(user != null && user.isActive()) {
+                    var auth = new UsernamePasswordAuthenticationToken(
+                            email, null, List.of(() -> "ROLE_" + role));
+                    SecurityContextHolder.getContext().setAuthentication(auth);
+                }
+            }
+        }
+        filterChain.doFilter(request, response);
+    }
+}
+=====./config/JwtProperties.java=====
+package kz.ruzgaliyev.Daras.config;
+
+import org.springframework.boot.context.properties.ConfigurationProperties;
+
+@ConfigurationProperties(prefix = "jwt")
+public record JwtProperties(
+    String secret,
+    Access access,
+    Refresh refresh,
+    String tokenPrefix,
+    String header
+) {
+    public record Access(long expiration) {}
+    public record Refresh(long expiration) {}
+}
+
+=====./config/SecurityConfig.java=====
+package kz.ruzgaliyev.Daras.config;
+
+import java.util.List;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+@Configuration
+public class SecurityConfig {
+
+    private final JwtAuthFilter jwtAuthFilter;
+
+    public SecurityConfig(JwtAuthFilter jwtAuthFilter) {
+        this.jwtAuthFilter = jwtAuthFilter;
+    }
+
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
+
+    @Bean 
+    public CorsConfigurationSource configurationSource() {
+        
+        CorsConfiguration corsConfiguration = new CorsConfiguration();
+        corsConfiguration.setAllowedOrigins(List.of("http://localhost:4200"));
+        corsConfiguration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        corsConfiguration.setAllowedHeaders(List.of("*"));
+        corsConfiguration.setAllowCredentials(true);
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", corsConfiguration);
+
+        return source;
+
+    }
+
+    @Bean
+    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+        http
+            .cors(cors -> cors.configurationSource(configurationSource()))
+            .csrf(AbstractHttpConfigurer::disable)
+            .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .authorizeHttpRequests
+            (auth -> auth
+                .requestMatchers("/api/auth/register", "/api/auth/login", "/api/auth/refresh").permitAll()
+                .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                .anyRequest().authenticated()
+            )
+            .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+        return http.build();
+    }
+}
+=====./controller/AdminController.java=====
+package kz.ruzgaliyev.Daras.controller;
+
+import java.util.List;
+
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import jakarta.servlet.http.HttpServletRequest;
+import kz.ruzgaliyev.Daras.dto.UpdateUserStatusRequest;
+import kz.ruzgaliyev.Daras.dto.UpdateUserRoleRequest;
+import kz.ruzgaliyev.Daras.dto.UserResponse;
+import kz.ruzgaliyev.Daras.service.AdminService;
+import kz.ruzgaliyev.Daras.dto.BlockUserRequest;
+
+
+@RestController
+@RequestMapping("/api/admin")
+public class AdminController {
+
+    private final AdminService adminService;
+
+    public AdminController(AdminService adminService) {
+        this.adminService = adminService;
+    }
+    
+    @GetMapping("/test")
+    public String testAdmin() {
+        return "Access Granted! The security config and jwtconfig is working!";
+    }
+
+    @GetMapping("/getAll")
+    public List<UserResponse> getAll() {
+        return adminService.getAllUsers();
+    }
+
+    @PatchMapping("/users/{id}/role")
+    public String changeUserRole(@PathVariable Long id, @RequestBody UpdateUserRoleRequest request) {
+        adminService.changeUserRole(id, request.getRole());
+
+        return "Success";
+    }
+
+    @PatchMapping("/users/{id}/active")
+    public String changeUserState(@PathVariable Long id, @RequestBody UpdateUserStatusRequest userState) {
+
+        adminService.changeUserStatus(id, userState.getState());
+
+        return "Success";
+
+    }
+
+    @GetMapping("/users/{id}")
+    public UserResponse getUserById(@PathVariable Long id) {
+        return adminService.getUserById(id);
+    }
+
+    @DeleteMapping("/users/{id}/delete")
+    public String softDeleteUser(@PathVariable Long id, HttpServletRequest request) {
+        String adminEmail = SecurityContextHolder.getContext().getAuthentication().getName();
+        adminService.softDeleteUser(id, adminEmail, request);
+        return "User soft deleted successfully";
+    }
+
+    @PatchMapping("/users/{id}/restore")
+    public String restoreUser(@PathVariable Long id, HttpServletRequest request) {
+        String adminEmail = SecurityContextHolder.getContext().getAuthentication().getName();
+        adminService.restoreUser(id, adminEmail, request);
+        return "User restored Successfully";
+    }
+
+    @PatchMapping("/users/{id}/block")
+    public String blockUser(@PathVariable Long id, @RequestBody BlockUserRequest body, HttpServletRequest request) {
+        String adminEmail = SecurityContextHolder.getContext().getAuthentication().getName();
+        adminService.blockUser(id, body.getReason(), adminEmail, request);
+        return "User blocked successfully";
+    }
+
+    @PatchMapping("/users/{id}/unblock")
+    public String unblockUser(@PathVariable Long id, HttpServletRequest request) {
+        String adminEmail = SecurityContextHolder.getContext().getAuthentication().getName();
+        adminService.unblockUser(id, adminEmail, request);
+        return "User unblocked successfully";
+    }
+
+}
+
+=====./controller/AuthController.java=====
+package kz.ruzgaliyev.Daras.controller;
+
+import kz.ruzgaliyev.Daras.dto.*;
+import kz.ruzgaliyev.Daras.service.AuthService;
+import lombok.NonNull;
+
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.web.bind.annotation.*;
+
+import jakarta.servlet.http.HttpServletRequest;
+
+@RestController
+@RequestMapping("/api/auth")
+public class AuthController {
+
+    private final AuthService authService;
+
+    public AuthController(AuthService authService) {
+        this.authService = authService;
+    }
+
+    @PostMapping("/register")
+    public String register(@RequestBody RegisterRequest request) {
+        return authService.register(request);
+    }
+
+    @PostMapping("/login")
+    public LoginResponse login(@NonNull HttpServletRequest httpRequest, @RequestBody LoginRequest request) {
+
+        return authService.login(httpRequest, request);
+    }
+
+    @PostMapping("/refresh")
+    public LoginResponse refresh(@NonNull HttpServletRequest httpRequest, @RequestBody RefreshRequest request) {
+
+        return authService.refresh(httpRequest, request);
+
+    }
+
+    @PostMapping("/logout")
+    public String logout(@NonNull HttpServletRequest httpServletRequest, @RequestBody RefreshRequest request) {
+        
+        String currentEmail = SecurityContextHolder.getContext().getAuthentication().getName();
+        authService.logout(currentEmail, request.getRefreshToken(), httpServletRequest);
+
+        return "Logged out successfully";
+
+    }
+
+    @PostMapping("/logout-all")
+    public String logoutAll(@NonNull HttpServletRequest httpServletRequest, @RequestBody RefreshRequest request) {
+        String currentEmail = SecurityContextHolder.getContext().getAuthentication().getName();
+
+        authService.logoutAll(currentEmail, httpServletRequest);
+
+        return "Logged out from all devices successfully";
+    }
+
+}
+=====./controller/UserController.java=====
+package kz.ruzgaliyev.Daras.controller;
+
+import java.util.List;
+
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import kz.ruzgaliyev.Daras.dto.ChangePasswordRequest;
+import kz.ruzgaliyev.Daras.dto.UpdateEmailRequest;
+import kz.ruzgaliyev.Daras.service.UserService;
+import kz.ruzgaliyev.Daras.dto.SessionResponse;
+import kz.ruzgaliyev.Daras.dto.UserResponse;
+
+@RestController
+@RequestMapping("/api/users")
+public class UserController {
+
+    private final UserService userService;
+
+    public UserController(UserService userService) {
+        this.userService = userService;
+    }
+
+    @GetMapping("/me")
+    public UserResponse getCurrentUser() {
+        String currentEmail = SecurityContextHolder.getContext().getAuthentication().getName();
+        return userService.getCurrentUser(currentEmail);
+    }
+
+    @PatchMapping("/me/email")
+    public String updateEmail(@RequestBody UpdateEmailRequest request) {
+        // Read INSIDE the method, at request time - this is a different value on every
+        // call. The constructor above ran once, when the app started; this method body
+        // runs once per HTTP request, which is the only place "who is calling right now"
+        // actually exists.
+        String currentEmail = SecurityContextHolder.getContext().getAuthentication().getName();
+
+        userService.updateEmail(currentEmail, request.getEmail());
+
+        return "Email updated successfully";
+    }
+
+    @PatchMapping("/me/password")
+    public String changePassword(@RequestBody ChangePasswordRequest request) {
+        String currentEmail = SecurityContextHolder.getContext().getAuthentication().getName();
+
+        userService.changePassword(currentEmail, request);
+
+        return "Password updated successfully";
+
+    }
+
+    @GetMapping("/me/sessions")
+    public List<SessionResponse> getSessions() {
+        String currentEmail = SecurityContextHolder.getContext().getAuthentication().getName();
+        return userService.getUserSessions(currentEmail);
+    }
+
+    @DeleteMapping("/me/sessions/{sessionId}")
+    public String revokeSession(@PathVariable Long sessionId) {
+
+        String currentEmail = SecurityContextHolder.getContext().getAuthentication().getName();
+        userService.revokeUserSession(currentEmail, sessionId);
+
+        return "Session revoked Successfully!";
+
+    }
+
+}
+
+=====./controller/UserProfileController.java=====
+package kz.ruzgaliyev.Daras.controller;
+
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import jakarta.validation.Valid;
+import kz.ruzgaliyev.Daras.dto.UserProfileRequest;
+import kz.ruzgaliyev.Daras.entity.UserProfile;
+import kz.ruzgaliyev.Daras.service.UserProfileService;
+
+@RestController
+@RequestMapping("/users")
+public class UserProfileController {
+    
+    private final UserProfileService userProfileService;
+
+    public UserProfileController(UserProfileService userProfileService) {
+        this.userProfileService = userProfileService;
+    }
+
+
+    @GetMapping("/{userId}/profile")
+    public ResponseEntity<UserProfile> getProfile(@PathVariable Long userId) {
+        return ResponseEntity.ok(userProfileService.getProfileByUserId(userId));
+    }
+
+    @PostMapping("{userId}/profile")
+    public ResponseEntity<UserProfile> saveOrUpdateProfile(@PathVariable Long userId, @RequestBody @Valid UserProfileRequest request) {
+        return ResponseEntity.ok(userProfileService.saveOrUpdateProfile(userId, request));
+    }
+
+    @DeleteMapping("{userId}/profile")
+    public ResponseEntity<String> deleteProfileByUserId(@PathVariable Long userId) {
+        userProfileService.deleteProfileByUserId(userId);
+
+        return ResponseEntity.ok("User profile deleted successfully!");
+    }
+
+}
+
+=====./dto/AuthResponse.java=====
+package kz.ruzgaliyev.Daras.dto;
+
+import lombok.AllArgsConstructor;
+import lombok.NoArgsConstructor;
+import lombok.Data;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class AuthResponse {
+    private String access_token;
+}
+
+=====./dto/BlockRequest.java=====
+package kz.ruzgaliyev.Daras.dto;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data 
+@NoArgsConstructor 
+@AllArgsConstructor 
+public class BlockRequest {
+    private String reason;
+    
+}
+
+=====./dto/BlockUserRequest.java=====
+package kz.ruzgaliyev.Daras.dto;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data 
+@NoArgsConstructor 
+@AllArgsConstructor 
+public class BlockUserRequest {
+    private String reason;
+}
+
+=====./dto/ChangePasswordRequest.java=====
+package kz.ruzgaliyev.Daras.dto;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data 
+@NoArgsConstructor 
+@AllArgsConstructor 
+public class ChangePasswordRequest {
+
+    private String oldPassword, newPassword;
+    
+}
+
+=====./dto/LoginRequest.java=====
+package kz.ruzgaliyev.Daras.dto;
+
+import lombok.AllArgsConstructor;
+import lombok.NoArgsConstructor;
+import lombok.Data;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class LoginRequest {
+    private String email;
+    private String password;
+}
+
+
+=====./dto/LoginResponse.java=====
+package kz.ruzgaliyev.Daras.dto;
+
+import lombok.AllArgsConstructor;
+import lombok.NoArgsConstructor;
+import lombok.Data;
+
+@Data 
+@NoArgsConstructor 
+@AllArgsConstructor
+public class LoginResponse {
+
+    private String accessToken;
+    private String refreshToken;
+
+    private String tokenType = "Bearer";
+
+    private Long expiresIn;
+    
+
+}
+
+=====./dto/RefreshRequest.java=====
+package kz.ruzgaliyev.Daras.dto;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class RefreshRequest {
+    
+    private String refreshToken;
+
+}
+
+=====./dto/RegisterRequest.java=====
+package kz.ruzgaliyev.Daras.dto;
+
+import lombok.AllArgsConstructor;
+import lombok.NoArgsConstructor;
+import lombok.Data;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class RegisterRequest {
+    private String email;
+    private String password;
+}
+=====./dto/SessionResponse.java=====
+package kz.ruzgaliyev.Daras.dto;
+
+import java.time.LocalDateTime;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data 
+@NoArgsConstructor 
+@AllArgsConstructor 
+public class SessionResponse {
+
+    private Long id;
+    private LocalDateTime createdAt;
+    private LocalDateTime expiresAt;
+    private String userAgent;
+    private String ipAddress;
+    private Boolean revoked;
+    
+}
+
+=====./dto/UpdateEmailRequest.java=====
+package kz.ruzgaliyev.Daras.dto;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data 
+@NoArgsConstructor 
+@AllArgsConstructor 
+public class UpdateEmailRequest {
+
+    private String email;
+    
+}
+
+=====./dto/UpdateUserRoleRequest.java=====
+package kz.ruzgaliyev.Daras.dto;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data 
+@NoArgsConstructor 
+@AllArgsConstructor
+public class UpdateUserRoleRequest {
+    
+    private String role;
+
+}
+
+=====./dto/UpdateUserStatusRequest.java=====
+package kz.ruzgaliyev.Daras.dto;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data 
+@NoArgsConstructor
+@AllArgsConstructor 
+public class UpdateUserStatusRequest {
+
+    private Boolean state = true;
+    
+}
+
+=====./dto/UserProfileRequest.java=====
+package kz.ruzgaliyev.Daras.dto;
+
+import jakarta.validation.constraints.NotBlank;
+import lombok.Getter;
+import lombok.Setter;
+
+@Getter
+@Setter
+public class UserProfileRequest {
+
+    @NotBlank(message = "First name is required and cannot be left blank!")
+    private String firstName;
+    
+    @NotBlank
+    private String lastName;
+
+    @NotBlank
+    private String phoneNumber;
+    
+    @NotBlank
+    private String bio;
+    
+}
+
+=====./dto/UserResponse.java=====
+package kz.ruzgaliyev.Daras.dto;
+
+import java.time.LocalDateTime;
+
+import lombok.AllArgsConstructor;
+import lombok.NoArgsConstructor;
+import lombok.Data;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class UserResponse {
+    
+    private Long id;
+    private String email;
+    private String role;
+    private LocalDateTime createdAt;
+    private Boolean active;
+
+}
+
+=====./entity/AuditLog.java=====
+package kz.ruzgaliyev.Daras.entity;
+
+import java.time.LocalDateTime;
+
+import org.hibernate.annotations.CreationTimestamp;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+@Entity 
+@Table(name = "audit_logs")
+@Getter 
+@Setter 
+@NoArgsConstructor 
+public class AuditLog {
+
+    @Id 
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    private Long actorUserId;
+
+    private String actorEmail;
+
+    @Column(nullable=false)
+    private String action;
+
+    private String targetType;
+
+    private Long targetId;
+
+    @Column(length = 1000)
+    private String description;
+
+    private String ipAddress;
+
+    private String userAgent;
+
+    @CreationTimestamp 
+    @Column(nullable = false, updatable = false)
+    private LocalDateTime createdAt;
+
+    public AuditLog(Long actorUserId, String actorEmail, String action, String targetType, 
+        Long targetId, String description, String ipAdrress, String userAgent) {
+
+        this.actorUserId = actorUserId;
+        this.actorEmail = actorEmail;
+        this.action = action;
+        this.targetType = targetType;
+        this.targetId = targetId;
+        this.description = description;
+        this.ipAddress = ipAdrress;
+        this.userAgent = userAgent;
+
+    }
+    
+    
+}
+
+=====./entity/RefreshToken.java=====
+package kz.ruzgaliyev.Daras.entity;
+
+import java.time.LocalDateTime;
+
+import org.hibernate.annotations.CreationTimestamp;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+import lombok.Getter;
+import lombok.Setter;
+
+@Entity 
+@Table(name = "refresh_token")
+@Getter
+@Setter
+public class RefreshToken {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    
+    @Column(unique = true, nullable = false)
+    private String token;
+
+    @CreationTimestamp 
+    @Column(nullable = false, updatable = false)
+    private LocalDateTime createdAt;
+
+    @Column(nullable = false)
+    private LocalDateTime expiresAt;
+
+    @Column(nullable = false)
+    private Boolean revoked;
+
+    
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;
+
+    @Column(nullable = false)
+    private String userAgent;
+
+    @Column(nullable = false)
+    private String ipAddress;
+    
+
+    
+}
+
+=====./entity/User.java=====
+package kz.ruzgaliyev.Daras.entity;
+
+import jakarta.persistence.*;
+import jakarta.validation.constraints.Email;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.ToString;
+
+import org.hibernate.annotations.CreationTimestamp;
+
+import org.hibernate.annotations.UpdateTimestamp;
+
+import java.time.LocalDateTime;
+
+@Entity
+@Table(name = "users")
+@Getter
+@Setter
+@ToString(exclude = "password")
+public class User {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private long id;
+
+    @Column(nullable = false, unique = true)
+    @Email 
+    private String email;
+
+    @Column(nullable = false)
+    private String password;
+
+    @Column(nullable = false)
+    private String role;
+
+    @Column(nullable = false)
+    private boolean active;
+
+    @CreationTimestamp
+    @Column(nullable = false, updatable = false)
+    private LocalDateTime createdAt;
+
+    @UpdateTimestamp
+    @Column
+    private LocalDateTime updatedAt;
+
+    @Column(nullable = false)
+    private boolean deleted = false;
+
+
+    @Column
+    private LocalDateTime deletedAt;
+
+    @Column
+    private String blockedReason;
+
+    @Column
+    private LocalDateTime blockedAt;
+    
+
+
+
+}
+
+
+=====./entity/UserProfile.java=====
+package kz.ruzgaliyev.Daras.entity;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.MapsId;
+import jakarta.persistence.OneToOne;
+import jakarta.persistence.Table;
+import lombok.Getter;
+import lombok.Setter;
+
+@Entity
+@Table(name = "user_profile")
+@Getter
+@Setter
+public class UserProfile {
+
+    @Id
+    private Long id;
+
+    @Column(nullable = false)
+    private String firstName;
+
+    @Column(nullable = false)
+    private String lastName;
+
+    @Column(nullable = false, unique = true)
+    private String phoneNumber;
+
+    @Column(columnDefinition = "TEXT")
+    private String bio;
+
+    @OneToOne
+    @MapsId 
+    @JoinColumn(name = "user_id", nullable = false, unique = true)
+    private User user;
+
+    
+}
+
+=====./exceptions/GlobalExceptionHandler.java=====
+package kz.ruzgaliyev.Daras.exceptions;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.server.ResponseStatusException;
+import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
+import java.util.Map;
+
+@RestControllerAdvice
+public class GlobalExceptionHandler {
+
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<Map<String, Object>> handleResponseStatus(ResponseStatusException ex) {
+        return buildResponse(HttpStatus.valueOf(ex.getStatusCode().value()), ex.getReason());
+    }
+
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<Map<String, Object>> handleGeneric(Exception ex) {
+        return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR, ex.getMessage());
+    }
+
+    private ResponseEntity<Map<String, Object>> buildResponse(HttpStatus status, String message) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("timestamp", LocalDateTime.now());
+        body.put("status", status.value());
+        body.put("error", message);
+        return ResponseEntity.status(status).body(body);
+    }
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<Map<String, Object>> handleValidation(MethodArgumentNotValidException ex) {
+        
+        String errorMessage = ex.getBindingResult().getFieldErrors().stream()
+                .map(error -> error.getField() + " " + error.getDefaultMessage())
+                .collect(java.util.stream.Collectors.joining(", "));
+        
+        return buildResponse(HttpStatus.BAD_REQUEST, errorMessage);
+
+    }
+
+}
+=====./repository/AuditLogRepository.java=====
+package kz.ruzgaliyev.Daras.repository;
+
+import kz.ruzgaliyev.Daras.entity.AuditLog;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+
+public interface AuditLogRepository extends JpaRepository<AuditLog, Long>, JpaSpecificationExecutor<AuditLog>{
+    
+} 
+
+=====./repository/RefreshTokenRepository.java=====
+package kz.ruzgaliyev.Daras.repository;
+
+import java.util.List;
+import java.util.Optional;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import kz.ruzgaliyev.Daras.entity.RefreshToken;
+import kz.ruzgaliyev.Daras.entity.User;
+
+public interface RefreshTokenRepository extends JpaRepository<RefreshToken, Long> {
+    Optional<RefreshToken> findByToken(String token);
+    List<RefreshToken> findByUserAndRevokedFalse(User user);
+}
+
+=====./repository/UserProfileRepository.java=====
+package kz.ruzgaliyev.Daras.repository;
+
+import java.util.Optional;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import jakarta.transaction.Transactional;
+import kz.ruzgaliyev.Daras.entity.UserProfile;
+
+public interface UserProfileRepository extends JpaRepository<UserProfile, Long> {
+
+    Optional<UserProfile> findByUserId(Long userId);
+
+    boolean existsByUserId(Long id);
+
+    @Transactional
+    void deleteByUserId(Long userId);
+    
+}
+
+=====./repository/UserRepository.java=====
+package kz.ruzgaliyev.Daras.repository;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.Optional;
+
+import kz.ruzgaliyev.Daras.entity.User;
+
+public interface UserRepository extends JpaRepository<User, Long>{
+
+    Optional<User> findByEmail(String email);
+    boolean existsByEmail(String email);
+
+}
+
+=====./service/AdminService.java=====
+package kz.ruzgaliyev.Daras.service;
+
+import java.time.LocalDateTime;
+import java.util.List;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
+
+import jakarta.servlet.http.HttpServletRequest;
+import kz.ruzgaliyev.Daras.dto.UserResponse;
+import kz.ruzgaliyev.Daras.entity.User;
+import kz.ruzgaliyev.Daras.repository.UserRepository;
+import kz.ruzgaliyev.Daras.repository.RefreshTokenRepository;
+import kz.ruzgaliyev.Daras.entity.RefreshToken;
+
+@Service
+public class AdminService {
+    
+    private final UserRepository userRepository;
+    private final RefreshTokenRepository refreshTokenRepository;
+    private final AuditLogService auditLogService;
+
+
+    public AdminService(UserRepository userRepository, RefreshTokenRepository refreshTokenRepository, AuditLogService auditLogService) {
+        this.userRepository = userRepository;
+        this.refreshTokenRepository = refreshTokenRepository;
+        this.auditLogService = auditLogService;
+    }
+
+    public List<UserResponse> getAllUsers() {
+        return userRepository.findAll().stream()
+            .map(u -> new UserResponse(u.getId(), u.getEmail(), u.getRole(), u.getCreatedAt(), u.isActive()))
+            .toList();
+    }
+
+
+    public void changeUserRole(Long id, String role) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "cannot find the user with that ID" + id));
+        
+        if(!role.equals("USER") && !role.equals("ADMIN")) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Not compatible role");
+        }
+
+        user.setRole(role);
+        userRepository.save(user);
+    }
+
+
+    public void changeUserStatus(Long id, Boolean state) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Cannot find the user with that ID" + id));
+        
+        user.setActive(state);
+        userRepository.save(user);
+        
+    }
+
+    public UserResponse getUserById(Long id) {
+        
+        User user = userRepository.findById(id)
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User with this ID does not exist!"));
+        
+        return new UserResponse(user.getId(), user.getEmail(), user.getRole(), user.getCreatedAt(), user.isActive());
+    }
+
+
+
+    public void softDeleteUser(Long id, String adminEmail, HttpServletRequest request) {
+        User user = userRepository.findById(id)
+        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found!"));
+
+        if(user.getEmail().equals(adminEmail)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Admin cannot delete themselves");
+        }
+
+        user.setDeleted(true);
+        user.setDeletedAt(LocalDateTime.now());
+        user.setActive(false);
+        userRepository.save(user);
+
+        List<RefreshToken> tokens = refreshTokenRepository.findByUserAndRevokedFalse(user);
+
+        for (RefreshToken t : tokens) {
+            t.setRevoked(true);
+        }
+
+        refreshTokenRepository.saveAll(tokens);
+
+        
+        auditLogService.log(null, user.getEmail(), "USER_SOFT_DELETED", 
+        "USER", user.getId(), "Admin deleted the user", 
+        request.getRemoteAddr(), request.getHeader("User-Agent"));
+    }
+
+
+    public void restoreUser(Long id, String adminEmail, HttpServletRequest request) {
+        User user = userRepository.findById(id)
+        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User is not found"));
+
+        if(!user.isDeleted()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "User is not deleted");
+        }
+
+        user.setDeleted(false);
+        user.setActive(true);
+        user.setDeletedAt(null);
+        userRepository.save(user);
+
+        auditLogService.log(null, adminEmail, "USER_RESTORED", 
+        "USER", user.getId(), "Admin restored the user", 
+        request.getRemoteAddr(), request.getHeader("User-Agent"));
+
+    }
+
+    public void blockUser(Long id, String reason, String adminEmail, HttpServletRequest request) {
+    User user = userRepository.findById(id)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+    if (user.getEmail().equals(adminEmail)) {
+        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Admin cannot block themselves");
+    }
+    user.setActive(false);
+    user.setBlockedReason(reason);
+    user.setBlockedAt(LocalDateTime.now());
+    userRepository.save(user);
+    // Revoke all refresh tokens
+    List<RefreshToken> tokens = refreshTokenRepository.findByUserAndRevokedFalse(user);
+    for (RefreshToken t : tokens) {
+        t.setRevoked(true);
+    }
+    refreshTokenRepository.saveAll(tokens);
+    auditLogService.log(null, adminEmail, "USER_BLOCKED", "USER", user.getId(), 
+            "Admin blocked user " + user.getEmail() + " for: " + reason, request.getRemoteAddr(), request.getHeader("User-Agent"));
+}
+
+    public void unblockUser(Long id, String adminEmail, HttpServletRequest request) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+        user.setActive(true);
+        user.setBlockedReason(null);
+        user.setBlockedAt(null);
+        userRepository.save(user);
+        auditLogService.log(null, adminEmail, "USER_UNBLOCKED", "USER", user.getId(), 
+                "Admin unblocked user " + user.getEmail(), request.getRemoteAddr(), request.getHeader("User-Agent"));
+    }
+
+
+}
+
+=====./service/AuditLogService.java=====
+package kz.ruzgaliyev.Daras.service;
+
+import kz.ruzgaliyev.Daras.entity.AuditLog;
+import org.springframework.stereotype.Service;
+
+import kz.ruzgaliyev.Daras.repository.AuditLogRepository;
+
+@Service 
+public class AuditLogService {
+
+    private final AuditLogRepository auditLogRepository;
+
+    public AuditLogService(AuditLogRepository auditLogRepository) {
+        this.auditLogRepository = auditLogRepository;
+    }
+
+    public void log(
+            Long actorUserId,
+            String actorEmail,
+            String action,
+            String targetType,
+            Long targetId,
+            String description,
+            String ipAddress,
+            String userAgent
+    ) {
+        AuditLog auditLog = new AuditLog(
+                actorUserId,
+                actorEmail,
+                action,
+                targetType,
+                targetId,
+                description,
+                ipAddress,
+                userAgent
+        );
+        auditLogRepository.save(auditLog);
+    }
+    
+}
+
+=====./service/AuthService.java=====
+package kz.ruzgaliyev.Daras.service;
+
+import kz.ruzgaliyev.Daras.config.JwtProperties;
+import kz.ruzgaliyev.Daras.dto.*;
+import kz.ruzgaliyev.Daras.entity.RefreshToken;
+import kz.ruzgaliyev.Daras.entity.User;
+import kz.ruzgaliyev.Daras.repository.RefreshTokenRepository;
+import kz.ruzgaliyev.Daras.repository.UserRepository;
+
+import java.time.Duration;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.UUID;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
+
+import jakarta.servlet.http.HttpServletRequest;
+
+@Service
+public class AuthService {
+
+    private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final JwtService jwtService;
+    private final JwtProperties jwtProperties;
+    private final RefreshTokenRepository refreshTokenRepository;
+    private final AuditLogService auditLogService;
+
+    public AuthService(
+        UserRepository userRepository, PasswordEncoder passwordEncoder, JwtService jwtService,
+        JwtProperties jwtProperties, RefreshTokenRepository refreshTokenRepository,
+        AuditLogService auditLogService
+    ) {
+        this.userRepository = userRepository;
+        this.passwordEncoder = passwordEncoder;
+        this.jwtService = jwtService;
+        this.jwtProperties = jwtProperties;
+        this.refreshTokenRepository = refreshTokenRepository;
+        this.auditLogService = auditLogService;
+    }
+
+    public String register(RegisterRequest request) {
+        if (userRepository.existsByEmail(request.getEmail())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email already exist");
+        }
+        User user = new User();
+        user.setEmail(request.getEmail());
+        user.setPassword(passwordEncoder.encode(request.getPassword()));
+        user.setRole("USER");
+        user.setActive(true);
+        userRepository.save(user);
+
+        auditLogService.log(
+        user.getId(),
+        user.getEmail(),
+        "USER_REGISTERED",
+        "USER",
+        user.getId(),
+        "User registered successfully",
+        null,
+        null
+        );
+
+        return "User registered successfully";
+    }
+
+    public LoginResponse login(HttpServletRequest httprequest, LoginRequest request) {
+        User user = userRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid Credentials"));
+
+        if(user.isDeleted()) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "User account is deleted");
+        }
+
+        if(!user.isActive()) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "User is blocked!");
+        }
+
+        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid Credentials");
+        }
+
+
+        String accessToken = jwtService.generateToken(user.getEmail(), user.getRole());
+
+        RefreshToken refreshToken = new RefreshToken();
+
+        refreshToken.setToken(UUID.randomUUID().toString());
+        refreshToken.setUser(user);
+
+        refreshToken.setExpiresAt(LocalDateTime.now().plus(Duration.ofMillis(jwtProperties.refresh().expiration())));
+        
+        refreshToken.setRevoked(false);
+        refreshToken.setUserAgent(httprequest.getHeader("User-Agent"));
+        refreshToken.setIpAddress(httprequest.getRemoteAddr());
+
+        refreshTokenRepository.save(refreshToken);
+
+
+        auditLogService.log(
+        user.getId(),
+        user.getEmail(),
+        "USER_LOGIN",
+        "USER",
+        user.getId(),
+        "User logged in successfully",
+        httprequest.getRemoteAddr(),
+        httprequest.getHeader("User-Agent")
+        );
+        
+
+
+        return new LoginResponse(accessToken, refreshToken.getToken(), "Bearer", jwtProperties.access().expiration());
+
+
+    }
+
+    public LoginResponse refresh(HttpServletRequest httpServletRequest, RefreshRequest request) {
+
+        RefreshToken refreshToken = refreshTokenRepository.findByToken(request.getRefreshToken())
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid refresh token"));
+
+        if(refreshToken.getRevoked()) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "The token is revoked!");
+        }
+
+        if(LocalDateTime.now().isAfter(refreshToken.getExpiresAt()) || !refreshToken.getUser().isActive()) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Refresh token expired");
+        }
+
+        refreshToken.setRevoked(true);
+        refreshTokenRepository.save(refreshToken);
+
+        RefreshToken newRefreshToken = new RefreshToken();
+
+        newRefreshToken.setUser(refreshToken.getUser());
+        newRefreshToken.setToken(UUID.randomUUID().toString());
+        newRefreshToken.setExpiresAt(LocalDateTime.now().plus(Duration.ofMillis(jwtProperties.refresh().expiration())));
+        newRefreshToken.setRevoked(false);
+        newRefreshToken.setUserAgent(httpServletRequest.getHeader("User-Agent"));
+        newRefreshToken.setIpAddress(httpServletRequest.getRemoteAddr());
+
+        refreshTokenRepository.save(newRefreshToken);
+
+        String accessToken = jwtService.generateToken(
+            refreshToken.getUser().getEmail(),
+            refreshToken.getUser().getRole()
+        );
+
+        return new LoginResponse(accessToken, newRefreshToken.getToken(), "Bearer", jwtProperties.access().expiration());
+
+    }
+
+    public void logout(String email, String refreshToken, HttpServletRequest request) {
+
+        RefreshToken token = refreshTokenRepository.findByToken(refreshToken)
+        .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN, "cannot find the token"));
+
+        if(!token.getUser().getEmail().equals(email)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Cannot revoke someone else's token");
+        }
+
+        token.setRevoked(true);
+        refreshTokenRepository.save(token);
+
+        auditLogService.log(token.getUser().getId(), email, "USER_LOGOUT", 
+        "USER", token.getUser().getId(), "User logged out", 
+        request.getRemoteAddr(), request.getHeader("User-Agent"));
+
+    }
+
+    public void logoutAll(String email, HttpServletRequest request) {
+
+        User user = userRepository.findByEmail(email)
+        .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found"));
+
+        List<RefreshToken> activeSessions = refreshTokenRepository.findByUserAndRevokedFalse(user);
+
+        for (RefreshToken refreshToken : activeSessions) {
+            refreshToken.setRevoked(true);
+        }
+
+        refreshTokenRepository.saveAll(activeSessions);
+
+        auditLogService.log(user.getId(), email, "USER_LOGOUT_ALL", 
+        "USER", user.getId(), "User logged out from all the devices",
+        request.getRemoteAddr(), request.getHeader("User-Agent"));
+
+    }
+
+}
+=====./service/JwtService.java=====
+package kz.ruzgaliyev.Daras.service;
+
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.security.Keys;
+import kz.ruzgaliyev.Daras.config.JwtProperties;
+
+import org.springframework.stereotype.Service;
+
+import javax.crypto.SecretKey;
+import java.nio.charset.StandardCharsets;
+import java.util.Date;
+
+@Service
+public class JwtService {
+
+    private final JwtProperties jwtProperties;
+    private final SecretKey signingKey;
+
+    public JwtService(JwtProperties jwtProperties) {
+        this.jwtProperties = jwtProperties;
+        this.signingKey = Keys.hmacShaKeyFor(jwtProperties.secret().getBytes(StandardCharsets.UTF_8));
+    }
+
+    public String generateToken(String email, String role) {
+        Date now = new Date();
+        Date expiry = new Date(now.getTime() + jwtProperties.access().expiration());
+
+        return Jwts.builder()
+                .subject(email)
+                .claim("role", role)
+                .issuedAt(now)
+                .expiration(expiry)
+                .signWith(signingKey)
+                .compact();
+    }
+
+    public boolean validateToken(String token) {
+        try {
+            Jwts.parser()
+                    .verifyWith(signingKey)
+                    .build()
+                    .parseSignedClaims(token);
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    public String extractEmail(String token) {
+        return extractClaims(token).getSubject();
+    }
+
+    public String extractRole(String token) {
+        return extractClaims(token).get("role", String.class);
+    }
+
+    private Claims extractClaims(String token) {
+        return Jwts.parser()
+                .verifyWith(signingKey)
+                .build()
+                .parseSignedClaims(token)
+                .getPayload();
+    }
+}
+=====./service/UserProfileService.java=====
+package kz.ruzgaliyev.Daras.service;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
+
+import jakarta.transaction.Transactional;
+import kz.ruzgaliyev.Daras.dto.UserProfileRequest;
+import kz.ruzgaliyev.Daras.entity.User;
+import kz.ruzgaliyev.Daras.entity.UserProfile;
+import kz.ruzgaliyev.Daras.repository.UserProfileRepository;
+import kz.ruzgaliyev.Daras.repository.UserRepository;
+
+@Service
+public class UserProfileService {
+    
+    private final UserRepository userRepository;
+    private final UserProfileRepository userProfileRepository;
+
+    public UserProfileService(UserRepository userRepository, UserProfileRepository userProfileRepository) {
+        this.userRepository = userRepository;
+        this.userProfileRepository = userProfileRepository;
+    }
+
+
+    public UserProfile getProfileByUserId(Long userId) {
+
+        checkProfileAccess(userId);
+
+        return userProfileRepository.findByUserId(userId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found with ID: " + userId));
+    }
+
+    
+    @Transactional
+    public UserProfile saveOrUpdateProfile(Long userId, UserProfileRequest request) {
+
+        checkProfileAccess(userId);
+
+        User user = userRepository.findById(userId)
+        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found with ID: " + userId));
+
+        UserProfile profile = userProfileRepository.findByUserId(userId).orElse(new UserProfile());
+
+        profile.setFirstName(request.getFirstName());
+        profile.setLastName(request.getLastName());
+        profile.setPhoneNumber(request.getPhoneNumber());
+        profile.setBio(request.getBio());
+
+        if(profile.getUser() == null) {
+            profile.setUser(user);
+        }
+
+
+        return userProfileRepository.save(profile);
+
+
+    }
+
+
+
+
+    @Transactional
+    public void deleteProfileByUserId(Long userId) {
+
+        checkProfileAccess(userId);
+
+        if(!userProfileRepository.existsByUserId(userId)) { 
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Cannot delete: Profile does not exist for user ID: " + userId);
+        }
+
+
+        userProfileRepository.deleteByUserId(userId);
+        
+    }
+
+
+    private void checkProfileAccess(Long userId) {
+        String currentEmail = SecurityContextHolder.getContext().getAuthentication().getName();
+
+        User currentUser = userRepository.findByEmail(currentEmail)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User with this email not found"));
+        
+        if( !(currentUser.getId() == userId || currentUser.getRole().equals("ADMIN")) ) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Not allowed to access this profile!");
+        }
+
+    }
+
+
+    
+
+
+}
+
+=====./service/UserService.java=====
+package kz.ruzgaliyev.Daras.service;
+
+import java.util.List;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
+
+import kz.ruzgaliyev.Daras.dto.ChangePasswordRequest;
+import kz.ruzgaliyev.Daras.entity.RefreshToken;
+import kz.ruzgaliyev.Daras.entity.User;
+import kz.ruzgaliyev.Daras.repository.UserRepository;
+import kz.ruzgaliyev.Daras.dto.UserResponse;
+import kz.ruzgaliyev.Daras.repository.RefreshTokenRepository;
+import kz.ruzgaliyev.Daras.dto.SessionResponse;
+
+@Service
+public class UserService {
+
+    private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final RefreshTokenRepository refreshTokenRepository;
+
+    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder, RefreshTokenRepository refreshTokenRepository) {
+        this.userRepository = userRepository;
+        this.passwordEncoder = passwordEncoder;
+        this.refreshTokenRepository = refreshTokenRepository;
+    }
+
+    public void updateEmail(String currentEmail, String newEmail) {
+        // currentEmail comes from the controller, which read it out of the verified
+        // token via SecurityContextHolder - this is the row we are allowed to change.
+        User user = userRepository.findByEmail(currentEmail)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+
+        // existsByEmail returns a plain boolean, not an Optional - this is the
+        // correct way to check "is this value already taken", unlike the
+        // `findByEmail(...) == null` check from before, which could never be true.
+        if (userRepository.existsByEmail(newEmail)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email already in use");
+        }
+
+        user.setEmail(newEmail);
+        userRepository.save(user);
+    }
+
+    public void changePassword(String currentEmail, ChangePasswordRequest request) {
+
+        User user = userRepository.findByEmail(currentEmail)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User with this email not found"));
+        
+        
+        if(passwordEncoder.matches(request.getOldPassword(), user.getPassword())) {
+            user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+            userRepository.save(user);
+        }
+        else { 
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Your old password does not match. If forgot then reset password");
+        }
+
+    }
+
+    public UserResponse getCurrentUser(String email) {
+        User user = userRepository.findByEmail(email)
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User with this email not found"));
+        
+        return new UserResponse(user.getId(), user.getEmail(), user.getRole(), user.getCreatedAt(), user.isActive());
+    }
+
+    public List<SessionResponse> getUserSessions(String email) {
+        User user = userRepository.findByEmail(email)
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User with this email is not found"));
+        
+        return refreshTokenRepository.findByUserAndRevokedFalse(user).stream()
+                .map(t -> new SessionResponse(
+                    t.getId(),
+                    t.getCreatedAt(),
+                    t.getExpiresAt(),
+                    t.getUserAgent(),
+                    t.getIpAddress(),
+                    t.getRevoked()
+                )).toList();
+        
+    }
+
+
+    public void revokeUserSession(String email, Long sessionId) {
+
+        RefreshToken token = refreshTokenRepository.findById(sessionId)
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Session not found"));
+        
+        if(!token.getUser().getEmail().equals(email)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You cannot revoke another user's session");
+        }
+
+        token.setRevoked(true);
+        refreshTokenRepository.save(token);
+
+    }
+
+}
+
