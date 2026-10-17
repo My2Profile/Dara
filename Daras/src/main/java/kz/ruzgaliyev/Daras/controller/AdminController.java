@@ -2,6 +2,7 @@ package kz.ruzgaliyev.Daras.controller;
 
 import java.util.List;
 
+import org.springframework.boot.data.autoconfigure.web.DataWebProperties.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -20,6 +21,8 @@ import kz.ruzgaliyev.Daras.service.AdminService;
 import kz.ruzgaliyev.Daras.dto.BlockUserRequest;
 
 
+
+
 @RestController
 @RequestMapping("/api/admin")
 public class AdminController {
@@ -36,9 +39,10 @@ public class AdminController {
     }
 
     @GetMapping("/getAll")
-    public List<UserResponse> getAll() {
-        @PageableDefault(size = 10)
-        return adminService.getAllUsers();
+    public List<UserResponse> getAll(
+        @PageableDefault(size = 10, page = 0, sort = "id") Pageable pageable
+    ) {
+        return adminService.getAllUsers(pageable);
     }
 
     @PatchMapping("/users/{id}/role")

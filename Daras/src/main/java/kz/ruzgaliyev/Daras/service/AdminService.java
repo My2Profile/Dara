@@ -3,6 +3,7 @@ package kz.ruzgaliyev.Daras.service;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import org.springframework.boot.data.autoconfigure.web.DataWebProperties.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -28,8 +29,8 @@ public class AdminService {
         this.auditLogService = auditLogService;
     }
 
-    public List<UserResponse> getAllUsers() {
-        return userRepository.findAll().stream()
+    public List<UserResponse> getAllUsers(Pageable pageable) {
+        return userRepository.findAll(pageable).stream()
             .map(u -> new UserResponse(u.getId(), u.getEmail(), u.getRole(), u.getCreatedAt(), u.isActive()))
             .toList();
     }
