@@ -13,6 +13,7 @@ import jakarta.servlet.http.HttpServletRequest;
 
 import kz.ruzgaliyev.Daras.dto.UserResponse;
 import kz.ruzgaliyev.Daras.entity.User;
+import kz.ruzgaliyev.Daras.mapper.UserMapper;
 import kz.ruzgaliyev.Daras.repository.UserRepository;
 import kz.ruzgaliyev.Daras.repository.RefreshTokenRepository;
 import kz.ruzgaliyev.Daras.entity.RefreshToken;
@@ -23,12 +24,14 @@ public class AdminService {
     private final UserRepository userRepository;
     private final RefreshTokenRepository refreshTokenRepository;
     private final AuditLogService auditLogService;
+    private final UserMapper userMapper;
 
 
-    public AdminService(UserRepository userRepository, RefreshTokenRepository refreshTokenRepository, AuditLogService auditLogService) {
+    public AdminService(UserRepository userRepository, RefreshTokenRepository refreshTokenRepository, AuditLogService auditLogService, UserMapper userMapper) {
         this.userRepository = userRepository;
         this.refreshTokenRepository = refreshTokenRepository;
         this.auditLogService = auditLogService;
+        this.userMapper = userMapper;
     }
 
     @Transactional(readOnly = true)

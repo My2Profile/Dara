@@ -12,7 +12,7 @@ import lombok.NoArgsConstructor;
 public class UpdateUserRoleRequest {
     
     @NotBlank 
-
+    @Pattern(regexp = "^(USER|ADMIN)$", message = "Role must be either 'USER' or 'ADMIN'")
     private String role;
 
 }

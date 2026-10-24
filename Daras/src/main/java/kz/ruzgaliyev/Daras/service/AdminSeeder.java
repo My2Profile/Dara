@@ -21,10 +21,9 @@ public class AdminSeeder implements CommandLineRunner{
         this.userRepository = userRepository;
     }
 
-    @Override
-    @ConfigurationProperties(prefix = "app.seed-admin")
+    @Override    
     public void run(String... args) throws Exception {
-        if(!userRepository.existsByEmail(${email})) {
+        if(!userRepository.existsByEmail()) {
             User user = new User();
             user.setActive(true);
             user.setEmail("admin-seeder@gmail.com");

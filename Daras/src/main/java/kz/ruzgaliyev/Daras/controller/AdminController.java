@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 import kz.ruzgaliyev.Daras.dto.UpdateUserStatusRequest;
 import kz.ruzgaliyev.Daras.dto.UpdateUserRoleRequest;
 import kz.ruzgaliyev.Daras.dto.UserResponse;
@@ -48,14 +49,14 @@ public class AdminController {
     }
 
     @PatchMapping("/users/{id}/role")
-    public String changeUserRole(@PathVariable Long id, @RequestBody UpdateUserRoleRequest request) {
+    public String changeUserRole(@PathVariable Long id, @RequestBody @Valid UpdateUserRoleRequest request) {
         adminService.changeUserRole(id, request.getRole());
 
         return "Success";
     }
 
     @PatchMapping("/users/{id}/active")
-    public String changeUserState(@PathVariable Long id, @RequestBody UpdateUserStatusRequest userState) {
+    public String changeUserState(@PathVariable Long id, @RequestBody @Valid UpdateUserStatusRequest userState) {
 
         adminService.changeUserStatus(id, userState.getState());
 
@@ -83,7 +84,7 @@ public class AdminController {
     }
 
     @PatchMapping("/users/{id}/block")
-    public String blockUser(@PathVariable Long id, @RequestBody BlockUserRequest body, HttpServletRequest request) {
+    public String blockUser(@PathVariable Long id, @RequestBody @Valid BlockUserRequest body, HttpServletRequest request) {
         String adminEmail = SecurityContextHolder.getContext().getAuthentication().getName();
         adminService.blockUser(id, body.getReason(), adminEmail, request);
         return "User blocked successfully";

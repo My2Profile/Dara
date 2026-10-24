@@ -10,6 +10,7 @@ import org.springframework.web.server.ResponseStatusException;
 import kz.ruzgaliyev.Daras.dto.ChangePasswordRequest;
 import kz.ruzgaliyev.Daras.entity.RefreshToken;
 import kz.ruzgaliyev.Daras.entity.User;
+import kz.ruzgaliyev.Daras.mapper.UserMapper;
 import kz.ruzgaliyev.Daras.repository.UserRepository;
 import kz.ruzgaliyev.Daras.dto.UserResponse;
 import kz.ruzgaliyev.Daras.repository.RefreshTokenRepository;
@@ -21,11 +22,14 @@ public class UserService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final RefreshTokenRepository refreshTokenRepository;
+    private final UserMapper userMapper;
 
-    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder, RefreshTokenRepository refreshTokenRepository) {
+
+    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder, RefreshTokenRepository refreshTokenRepository, UserMapper userMapper) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.refreshTokenRepository = refreshTokenRepository;
+        this.userMapper = userMapper;
     }
 
     public void updateEmail(String currentEmail, String newEmail) {

@@ -18,20 +18,14 @@ spring:
       hibernate:
         format_sql: true
 
-  sql:
-    init:
-      mode: always
-
   data:
     web:
       pageable:
         max-page-size: 100
 
 
-  open-in-view: false
-
 app:
   seed-admin:
     enabled: false
     email: "admin-seeder@gmail.com"
-    password: "admin-seeder"
+    password: "${SEED_ADMIN_PASSWORD}"

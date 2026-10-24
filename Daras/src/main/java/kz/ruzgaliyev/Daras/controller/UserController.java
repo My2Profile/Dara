@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import jakarta.validation.Valid;
 import kz.ruzgaliyev.Daras.dto.ChangePasswordRequest;
 import kz.ruzgaliyev.Daras.dto.UpdateEmailRequest;
 import kz.ruzgaliyev.Daras.service.UserService;
@@ -34,7 +35,7 @@ public class UserController {
     }
 
     @PatchMapping("/me/email")
-    public String updateEmail(@RequestBody UpdateEmailRequest request) {
+    public String updateEmail(@RequestBody @Valid UpdateEmailRequest request) {
         // Read INSIDE the method, at request time - this is a different value on every
         // call. The constructor above ran once, when the app started; this method body
         // runs once per HTTP request, which is the only place "who is calling right now"
@@ -47,7 +48,7 @@ public class UserController {
     }
 
     @PatchMapping("/me/password")
-    public String changePassword(@RequestBody ChangePasswordRequest request) {
+    public String changePassword(@RequestBody @Valid ChangePasswordRequest request) {
         String currentEmail = SecurityContextHolder.getContext().getAuthentication().getName();
 
         userService.changePassword(currentEmail, request);

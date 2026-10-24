@@ -76,7 +76,7 @@ public class UserProfileService {
         
     }
 
-    
+    @Transactional(readOnly = true)
     private void checkProfileAccess(Long userId) {
         String currentEmail = SecurityContextHolder.getContext().getAuthentication().getName();
 
