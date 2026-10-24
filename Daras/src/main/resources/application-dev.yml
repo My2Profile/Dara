@@ -32,4 +32,6 @@ spring:
 
 app:
   seed-admin:
-    enabled: true
+    enabled: false
+    email: "admin-seeder@gmail.com"
+    password: "admin-seeder"

@@ -5,6 +5,7 @@ import java.util.List;
 import org.springframework.boot.data.autoconfigure.web.DataWebProperties.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -39,6 +40,7 @@ public class AdminController {
     }
 
     @GetMapping("/getAll")
+    @Transactional(readOnly = true)
     public List<UserResponse> getAll(
         @PageableDefault(size = 10, page = 0, sort = "id") Pageable pageable
     ) {

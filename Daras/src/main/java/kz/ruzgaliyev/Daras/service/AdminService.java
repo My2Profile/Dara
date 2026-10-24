@@ -6,9 +6,11 @@ import java.util.List;
 import org.springframework.boot.data.autoconfigure.web.DataWebProperties.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import jakarta.servlet.http.HttpServletRequest;
+
 import kz.ruzgaliyev.Daras.dto.UserResponse;
 import kz.ruzgaliyev.Daras.entity.User;
 import kz.ruzgaliyev.Daras.repository.UserRepository;
@@ -29,6 +31,7 @@ public class AdminService {
         this.auditLogService = auditLogService;
     }
 
+    @Transactional(readOnly = true)
     public List<UserResponse> getAllUsers(Pageable pageable) {
         return userRepository.findAll(pageable).stream()
             .map(u -> new UserResponse(u.getId(), u.getEmail(), u.getRole(), u.getCreatedAt(), u.isActive()))
@@ -58,6 +61,7 @@ public class AdminService {
         
     }
 
+    @Transactional(readOnly = true)
     public UserResponse getUserById(Long id) {
         
         User user = userRepository.findById(id)

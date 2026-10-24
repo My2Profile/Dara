@@ -24,7 +24,7 @@ public class UserProfileService {
         this.userProfileRepository = userProfileRepository;
     }
 
-
+    @Transactional(readOnly = true)
     public UserProfile getProfileByUserId(Long userId) {
 
         checkProfileAccess(userId);
@@ -76,7 +76,7 @@ public class UserProfileService {
         
     }
 
-
+    
     private void checkProfileAccess(Long userId) {
         String currentEmail = SecurityContextHolder.getContext().getAuthentication().getName();
 

@@ -2,6 +2,7 @@ package kz.ruzgaliyev.Daras.service;
 
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -21,8 +22,9 @@ public class AdminSeeder implements CommandLineRunner{
     }
 
     @Override
+    @ConfigurationProperties(prefix = "app.seed-admin")
     public void run(String... args) throws Exception {
-        if(!userRepository.existsByEmail("admin-seeder@gmail.com")) {
+        if(!userRepository.existsByEmail(${email})) {
             User user = new User();
             user.setActive(true);
             user.setEmail("admin-seeder@gmail.com");

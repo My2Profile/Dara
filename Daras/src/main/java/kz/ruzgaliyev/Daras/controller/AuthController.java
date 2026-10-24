@@ -8,6 +8,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -25,20 +26,20 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public LoginResponse login(@NonNull HttpServletRequest httpRequest, @RequestBody LoginRequest request) {
+    public LoginResponse login(@NonNull HttpServletRequest httpRequest, @RequestBody @Valid LoginRequest request) {
 
         return authService.login(httpRequest, request);
     }
 
     @PostMapping("/refresh")
-    public LoginResponse refresh(@NonNull HttpServletRequest httpRequest, @RequestBody RefreshRequest request) {
+    public LoginResponse refresh(@NonNull HttpServletRequest httpRequest, @RequestBody @Valid RefreshRequest request) {
 
         return authService.refresh(httpRequest, request);
 
     }
 
     @PostMapping("/logout")
-    public String logout(@NonNull HttpServletRequest httpServletRequest, @RequestBody RefreshRequest request) {
+    public String logout(@NonNull HttpServletRequest httpServletRequest, @RequestBody @Valid RefreshRequest request) {
         
         String currentEmail = SecurityContextHolder.getContext().getAuthentication().getName();
         authService.logout(currentEmail, request.getRefreshToken(), httpServletRequest);
@@ -48,7 +49,7 @@ public class AuthController {
     }
 
     @PostMapping("/logout-all")
-    public String logoutAll(@NonNull HttpServletRequest httpServletRequest, @RequestBody RefreshRequest request) {
+    public String logoutAll(@NonNull HttpServletRequest httpServletRequest, @RequestBody @Valid RefreshRequest request) {
         String currentEmail = SecurityContextHolder.getContext().getAuthentication().getName();
 
         authService.logoutAll(currentEmail, httpServletRequest);
