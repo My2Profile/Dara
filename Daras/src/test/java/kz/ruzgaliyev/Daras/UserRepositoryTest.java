@@ -1,4 +1,4 @@
-package kz.ruzgaliyev.Daras.repository;
+package kz.ruzgaliyev.Daras;
 
 public class UserRepositoryTest {
     

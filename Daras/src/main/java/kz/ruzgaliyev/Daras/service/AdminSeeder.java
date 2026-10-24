@@ -8,6 +8,9 @@ import org.springframework.stereotype.Service;
 
 import kz.ruzgaliyev.Daras.entity.User;
 import kz.ruzgaliyev.Daras.repository.UserRepository;
+import lombok.Value;
+
+
 
 @Service 
 @ConditionalOnProperty(prefix = "app.seed-admin", name = "enabled", havingValue = "true")
@@ -19,6 +22,9 @@ public class AdminSeeder implements CommandLineRunner{
     public AdminSeeder(UserRepository userRepository, PasswordEncoder passwordEncoder) {
         this.passwordEncoder = passwordEncoder;
         this.userRepository = userRepository;
+
+        
+
     }
 
     @Override    

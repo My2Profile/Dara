@@ -1,0 +1,2 @@
+INSERT INTO users (active, created_at, email, password, role) VALUES (true, NOW(), 'adminer@example.com', '$2a$10$8K8V7z9p5q6r7s8t9u0v1w2x3y4z5a6b7c8d9e0f1g2h3i4j5k6l7m8n9o0p1q2r3s4t5u6v7w8x9y0z1', 'ADMIN')
+ON CONFLICT (email) DO NOTHING;
