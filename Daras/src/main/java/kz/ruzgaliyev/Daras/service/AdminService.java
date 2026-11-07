@@ -68,7 +68,7 @@ public class AdminService {
     public UserResponse getUserById(Long id) {
         
         User user = userRepository.findById(id)
-                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User with this ID does not exist!"));
+                    .orElseThrow(() ->new ResponseStatusException(HttpStatus.NOT_FOUND, "User with this ID does not exist!"));
         
         return userMapper.toUserResponse(user);
     }
