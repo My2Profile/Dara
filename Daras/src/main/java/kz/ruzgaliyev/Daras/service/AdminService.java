@@ -3,6 +3,7 @@ package kz.ruzgaliyev.Daras.service;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -42,7 +43,7 @@ public class AdminService {
             .toList();
     }
 
-
+    @CacheEvict(value = "userCache", key = "#id")
     public void changeUserRole(Long id, String role) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "cannot find the user with that ID" + id));
@@ -55,7 +56,7 @@ public class AdminService {
         userRepository.save(user);
     }
 
-
+    @CacheEvict(value = "userCache", key = "#id")
     public void changeUserStatus(Long id, Boolean state) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Cannot find the user with that ID" + id));
@@ -76,7 +77,7 @@ public class AdminService {
     }
 
 
-
+    @CacheEvict(value = "userCache", key = "#id")
     public void softDeleteUser(Long id, String adminEmail, HttpServletRequest request) {
         User user = userRepository.findById(id)
         .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found!"));
@@ -104,7 +105,7 @@ public class AdminService {
         request.getRemoteAddr(), request.getHeader("User-Agent"));
     }
 
-
+    @CacheEvict(value = "userCache", key = "#id")
     public void restoreUser(Long id, String adminEmail, HttpServletRequest request) {
         User user = userRepository.findById(id)
         .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User is not found"));
@@ -124,6 +125,7 @@ public class AdminService {
 
     }
 
+    @CacheEvict(value = "userCache", key = "#id")
     public void blockUser(Long id, String reason, String adminEmail, HttpServletRequest request) {
     User user = userRepository.findById(id)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
@@ -144,6 +146,7 @@ public class AdminService {
             "Admin blocked user " + user.getEmail() + " for: " + reason, request.getRemoteAddr(), request.getHeader("User-Agent"));
 }
 
+    @CacheEvict(value = "userCache", key = "#id")
     public void unblockUser(Long id, String adminEmail, HttpServletRequest request) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
