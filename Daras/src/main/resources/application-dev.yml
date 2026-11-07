@@ -23,6 +23,12 @@ spring:
       pageable:
         max-page-size: 100
 
+  cache:
+    type: caffeine
+
+    caffeine:
+      spec: maximumSize=500,expireAfterAccess=5m
+
 
 app:
   seed-admin:

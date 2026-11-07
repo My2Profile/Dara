@@ -3,6 +3,7 @@ package kz.ruzgaliyev.Daras.service;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -64,6 +65,7 @@ public class AdminService {
         
     }
 
+    @Cacheable(value = "userCache", key = "#id")
     @Transactional(readOnly = true)
     public UserResponse getUserById(Long id) {
         

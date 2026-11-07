@@ -47,7 +47,7 @@ class AdminServiceTest {
     @Test 
     void getById_whenPresent_returnsUserResponse() {
         User user = new User();
-        UserResponse expected = new UserResponse(1L, "Doe");
+        UserResponse expected = new UserResponse();
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(userMapper.toUserResponse(user)).thenReturn(expected);
