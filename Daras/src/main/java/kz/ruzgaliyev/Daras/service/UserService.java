@@ -69,7 +69,7 @@ public class UserService {
         User user = userRepository.findByEmail(email)
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User with this email not found"));
         
-        return new UserResponse(user.getId(), user.getEmail(), user.getRole(), user.getCreatedAt(), user.isActive());
+        return userMapper.toUserResponse(user);
     }
 
     public List<SessionResponse> getUserSessions(String email) {

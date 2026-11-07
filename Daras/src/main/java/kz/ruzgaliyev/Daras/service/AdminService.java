@@ -37,7 +37,7 @@ public class AdminService {
     @Transactional(readOnly = true)
     public List<UserResponse> getAllUsers(Pageable pageable) {
         return userRepository.findAll(pageable).stream()
-            .map(u -> new UserResponse(u.getId(), u.getEmail(), u.getRole(), u.getCreatedAt(), u.isActive()))
+            .map(userMapper::toUserResponse)
             .toList();
     }
 
@@ -70,7 +70,7 @@ public class AdminService {
         User user = userRepository.findById(id)
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User with this ID does not exist!"));
         
-        return new UserResponse(user.getId(), user.getEmail(), user.getRole(), user.getCreatedAt(), user.isActive());
+        return userMapper.toUserResponse(user);
     }
 
 
