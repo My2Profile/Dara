@@ -2,19 +2,25 @@ package kz.ruzgaliyev.Daras.service;
 
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.boot.context.properties.ConfigurationProperties;
+
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import kz.ruzgaliyev.Daras.entity.User;
 import kz.ruzgaliyev.Daras.repository.UserRepository;
-import lombok.Value;
+import org.springframework.beans.factory.annotation.Value;
 
 
 
 @Service 
 @ConditionalOnProperty(prefix = "app.seed-admin", name = "enabled", havingValue = "true")
 public class AdminSeeder implements CommandLineRunner{
+
+    @Value("${app.seed-admin.email}")
+    private String adminEmail;
+
+    @Value("${app.seed-admin.password}")
+    private String adminPassword;
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
@@ -29,12 +35,12 @@ public class AdminSeeder implements CommandLineRunner{
 
     @Override    
     public void run(String... args) throws Exception {
-        if(!userRepository.existsByEmail()) {
+        if(!userRepository.existsByEmail(adminEmail)) {
             User user = new User();
             user.setActive(true);
-            user.setEmail("admin-seeder@gmail.com");
+            user.setEmail(adminEmail);
             user.setRole("ADMIN");
-            user.setPassword(passwordEncoder.encode("StrongPassword123"));
+            user.setPassword(passwordEncoder.encode(adminPassword));
             userRepository.save(user);
         }
         
