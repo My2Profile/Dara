@@ -1,7 +1,6 @@
 package kz.ruzgaliyev.Daras.config;
 
-import java.beans.BeanProperty;
-
+import org.springframework.http.client.ClientHttpRequestFactory;
 import org.springframework.boot.http.client.ClientHttpRequestFactoryBuilder;
 import org.springframework.boot.http.client.HttpClientSettings;
 import org.springframework.context.annotation.Bean;
@@ -16,7 +15,7 @@ public class OutboundConfig {
         HttpClientSettings settings = HttpClientSettings.defaults()
             .withTimeouts(properties.connectionTimeout(), properties.readTimeout());
         
-        ClientHttpRequestFactoryBuilder requestFactory = ClientHttpRequestFactoryBuilder.detect().build(settings);
+        ClientHttpRequestFactory requestFactory = ClientHttpRequestFactoryBuilder.detect().build(settings);
 
         return builder
               .baseUrl(properties.baseUrl())
