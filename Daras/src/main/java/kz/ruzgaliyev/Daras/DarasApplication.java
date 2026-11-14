@@ -6,10 +6,14 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.ConfigurableApplicationContext;
 
 import kz.ruzgaliyev.Daras.config.JwtProperties;
+import kz.ruzgaliyev.Daras.config.OutboundProperties;
 import kz.ruzgaliyev.Daras.service.JwtService;
 
 @SpringBootApplication
-@EnableConfigurationProperties(JwtProperties.class)
+@EnableConfigurationProperties({
+	JwtProperties.class,
+	OutboundProperties.class
+})
 public class DarasApplication {
 
 	public static void main(String[] args)  {

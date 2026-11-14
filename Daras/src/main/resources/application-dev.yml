@@ -38,5 +38,5 @@ app:
 
 external:
   base-url: "${EXTERNAL_BASE_URL:https://httpbin.org}"
-  connect-timeout: 1s
+  connection-timeout: 1s
   read-timeout: 2s
