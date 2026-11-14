@@ -2,6 +2,7 @@ package kz.ruzgaliyev.Daras.service;
 
 import java.util.List;
 
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -32,6 +33,7 @@ public class UserService {
         this.userMapper = userMapper;
     }
 
+    @CacheEvict(value = "userCache", allEntries = true)
     public void updateEmail(String currentEmail, String newEmail) {
         // currentEmail comes from the controller, which read it out of the verified
         // token via SecurityContextHolder - this is the row we are allowed to change.
