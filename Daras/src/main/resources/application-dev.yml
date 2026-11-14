@@ -35,3 +35,8 @@ app:
     enabled: false
     email: "admin-seeder@gmail.com"
     password: "${SEED_ADMIN_PASSWORD}"
+
+external:
+  base-url: "${EXTERNAL_BASE_URL:https://httpbin.org}"
+  connect-timeout: 1s
+  read-timeout: 2s
