@@ -1,6 +1,7 @@
 package kz.ruzgaliyev.Daras.controller;
 
 import kz.ruzgaliyev.Daras.dto.*;
+import kz.ruzgaliyev.Daras.exceptions.ErrorResponse;
 import kz.ruzgaliyev.Daras.service.AuthService;
 import lombok.NonNull;
 
@@ -8,11 +9,17 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 
 @Tag(name = "Authentication", description = "Endpoints for user authentication and authorization")
+    @ApiResponse(responseCode = "400", description = "Bad Request",
+        content = @Content(schema = @Schema(implementation = ErrorResponse.class))
+    )
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
@@ -29,8 +36,11 @@ public class AuthController {
         return authService.register(request);
     }
 
-    @Operation(summary = "User login", description = "Authenticate user and return access and refresh tokens")
     @PostMapping("/login")
+    @Operation(summary = "User login", description = "Authenticate user and return access and refresh tokens")
+    @ApiResponse(responseCode = "401", description = "Invalid credentials",
+        content = @Content(schema = @Schema(implementation = ErrorResponse.class))
+    )
     public LoginResponse login(@NonNull HttpServletRequest httpRequest, @RequestBody @Valid LoginRequest request) {
 
         return authService.login(httpRequest, request);

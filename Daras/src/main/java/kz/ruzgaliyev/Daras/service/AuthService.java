@@ -4,7 +4,6 @@ import kz.ruzgaliyev.Daras.config.JwtProperties;
 import kz.ruzgaliyev.Daras.dto.*;
 import kz.ruzgaliyev.Daras.entity.RefreshToken;
 import kz.ruzgaliyev.Daras.entity.User;
-import kz.ruzgaliyev.Daras.exceptions.ErrorResponse;
 import kz.ruzgaliyev.Daras.repository.RefreshTokenRepository;
 import kz.ruzgaliyev.Daras.repository.UserRepository;
 
@@ -18,9 +17,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
-import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.media.Schema;
-import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import jakarta.servlet.http.HttpServletRequest;
 
 @Service
@@ -71,8 +67,6 @@ public class AuthService {
         return "User registered successfully";
     }
 
-    @ApiResponse(responseCode = "401", description = "Invalid credentials", 
-        content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     public LoginResponse login(HttpServletRequest httprequest, LoginRequest request) {
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid Credentials"));
