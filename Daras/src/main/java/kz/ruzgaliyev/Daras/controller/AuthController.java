@@ -7,9 +7,12 @@ import lombok.NonNull;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 
+@Tag(name = "Authentication", description = "Endpoints for user authentication and authorization")
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
@@ -20,11 +23,13 @@ public class AuthController {
         this.authService = authService;
     }
 
+    @Operation(summary = "User registration", description = "Register a new user and return a confirmation message")
     @PostMapping("/register")
     public String register(@RequestBody @Valid RegisterRequest request) {
         return authService.register(request);
     }
 
+    @Operation(summary = "User login", description = "Authenticate user and return access and refresh tokens")
     @PostMapping("/login")
     public LoginResponse login(@NonNull HttpServletRequest httpRequest, @RequestBody @Valid LoginRequest request) {
 
